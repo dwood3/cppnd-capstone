@@ -11,22 +11,26 @@
 #include <opencv2/opencv.hpp>
 #include <thread>
 
-std::string exec(const char* cmd) {
+std::string exec(const char *cmd)
+{
 	std::array<char, 128> buffer;
 	std::string result;
 	std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
-	if (!pipe) {
+	if (!pipe)
+	{
 		throw std::runtime_error("popen() failed!");
 	}
-	while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+	while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
+	{
 		result += buffer.data();
 	}
 	return result;
 }
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
-	if (argc < 3) {
+	if (argc < 3)
+	{
 		std::cout << "Usage: ./keyframe_processor filename dim" << std::endl;
 		return -1;
 	}
@@ -36,18 +40,17 @@ int main(int argc, char** argv)
 
 	if (dim <= 0)
 	{
-        std::cout << "Dim must be greater than 0" << std::endl;
+		std::cout << "Dim must be greater than 0" << std::endl;
 		return -1;
 	}
 
-
 	// Extract keyframes from video
-    std::cout << "Extracting keyframes from " << filename << "..." << std::endl;
-    std::string command = "python3 ../src/extract_keyframes.py " + filename;
+	std::cout << "Extracting keyframes from " << filename << "..." << std::endl;
+	std::string command = "python3 ../src/extract_keyframes.py " + filename;
 	exec(command.c_str());
 
 	// Read in keyframe indices
-    std::ifstream inputFile("keyframes.txt");
+	std::ifstream inputFile("keyframes.txt");
 	int size = 0;
 	int keyframes_size = 0;
 	inputFile >> keyframes_size;
@@ -55,23 +58,25 @@ int main(int argc, char** argv)
 	keyframes.resize(keyframes_size);
 	int counter = 0;
 
-	if (inputFile) {
+	if (inputFile)
+	{
 		int value;
 
 		// read the elements in the file into a vector
-		while (inputFile >> value) {
+		while (inputFile >> value)
+		{
 			keyframes[counter++] = value;
 		}
 	}
 
-    std::cout << "Found " << keyframes.size() << " keyframes." << std::endl;
+	std::cout << "Found " << keyframes.size() << " keyframes." << std::endl;
 
 	cv::VideoCapture cap(filename);
 	// if not success, exit program
 	if (cap.isOpened() == false)
 	{
-        std::cout << "Cannot open the video file" << std::endl;
-        std::cin.get(); //wait for any key press
+		std::cout << "Cannot open the video file" << std::endl;
+		std::cin.get(); //wait for any key press
 		return -1;
 	}
 
@@ -85,7 +90,7 @@ int main(int argc, char** argv)
 	std::vector<keyframe_processor> kfps;
 	std::vector<std::thread> kfp_threads;
 	std::cout << "Launching keyframe processors... ";
-	for(int i=0;i<num_threads;i++)
+	for (int i = 0; i < num_threads; i++)
 	{
 		keyframe_processor kfp = keyframe_processor(i, _eventQueue, _msgQueue);
 		kfps.push_back(kfp);
@@ -93,14 +98,16 @@ int main(int argc, char** argv)
 	}
 	std::cout << "done." << std::endl;
 
-	for(int i=0;i<keyframes.size();i++) {
-        if (i % 10 == 0) {
-            std::cout << "\rProcessing keyframe " << i << " / " << keyframes.size() << " ("
-                      << (float(i) / keyframes.size()) * 100 << "%)" << std::flush;
-        }
-        cap.set(cv::CAP_PROP_POS_FRAMES, keyframes[i]);
+	for (int i = 0; i < keyframes.size(); i++)
+	{
+		if (i % 10 == 0)
+		{
+			std::cout << "\rProcessing keyframe " << i << " / " << keyframes.size() << " ("
+					  << (float(i) / keyframes.size()) * 100 << "%)" << std::flush;
+		}
+		cap.set(cv::CAP_PROP_POS_FRAMES, keyframes[i]);
 
-        cv::Mat frame;
+		cv::Mat frame;
 		bool bSuccess = cap.read(frame); // read a new frame from video
 
 		//Breaking the for loop early at the end of the video
@@ -111,48 +118,48 @@ int main(int argc, char** argv)
 		}
 
 		int frame_idx = keyframes[i];
-        double seconds = (1.0/fps) * frame_idx;
+		double seconds = (1.0 / fps) * frame_idx;
 
-        process_frame_event event = process_frame_event(i, frame_idx, frame,dim,fps, seconds);
-        auto sentCondition = std::async(std::launch::async, &message_queue<process_frame_event>::send, _eventQueue, std::move(event));
+		process_frame_event event = process_frame_event(i, frame_idx, frame, dim, fps, seconds);
+		auto sentCondition = std::async(std::launch::async, &message_queue<process_frame_event>::send, _eventQueue, std::move(event));
 	}
-    std::cout << "\rProcessing keyframe " << keyframes.size() << " / " << keyframes.size() << " ("
-              << "100%) done." << std::endl;
+	std::cout << "\rProcessing keyframe " << keyframes.size() << " / " << keyframes.size() << " ("
+			  << "100%) done." << std::endl;
 
-    // Open file to prepare for writing
-    std::ofstream outfile;
-    outfile.open("output.csv", std::ios::out | std::ios::trunc);
+	// Open file to prepare for writing
+	std::ofstream outfile;
+	outfile.open("output.csv", std::ios::out | std::ios::trunc);
 
 	// Wait for processed messages to return
 	int processed_frame_counter = 0;
 	while (processed_frame_counter < keyframes.size())
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 		processed_frame_message message = _msgQueue->receive();
 
 		// Write message to line in .csv file
 		outfile << message.get_seconds();
 		std::vector<int> medians = message.get_medians();
-		for(int i=0;i<medians.size();i++)
-		    outfile << ", " << medians[i];
+		for (int i = 0; i < medians.size(); i++)
+			outfile << ", " << medians[i];
 		outfile << std::endl;
 
-        processed_frame_counter++;
-        if (processed_frame_counter % 10 == 0) {
-            std::cout << "\rProcessed keyframes: " << processed_frame_counter << " / " << keyframes.size()
-                      << " (" << (float(processed_frame_counter) / keyframes.size()) * 100 << "%)" << std::flush;
-        }
-    }
-    std::cout << "\rProcessed keyframes: " <<  keyframes.size() << " / " << keyframes.size()
-              << " (100%) done." << std::endl;
+		processed_frame_counter++;
+		if (processed_frame_counter % 10 == 0)
+		{
+			std::cout << "\rProcessed keyframes: " << processed_frame_counter << " / " << keyframes.size()
+					  << " (" << (float(processed_frame_counter) / keyframes.size()) * 100 << "%)" << std::flush;
+		}
+	}
+	std::cout << "\rProcessed keyframes: " << keyframes.size() << " / " << keyframes.size()
+			  << " (100%) done." << std::endl;
 
-    outfile.close();
+	outfile.close();
 
-    // Stop frame processors by sending empty message
-    //for(int i=0;i<num_threads;i++) {
-    //    kfps[i].stop();
-    //}
-
+	// Stop frame processors by sending empty message
+	//for(int i=0;i<num_threads;i++) {
+	//    kfps[i].stop();
+	//}
 
 	return 0;
 }
