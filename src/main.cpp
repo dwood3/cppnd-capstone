@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 	{
 		keyframe_processor kfp = keyframe_processor(i, _eventQueue, _msgQueue);
 		kfps.push_back(kfp);
-		kfp_threads.emplace_back(std::thread(&keyframe_processor::process, kfp));
+		kfp_threads.push_back(std::thread(&keyframe_processor::process, kfp));
 	}
 	std::cout << "done." << std::endl;
 
