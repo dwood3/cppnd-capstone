@@ -36,11 +36,28 @@ int main(int argc, char **argv)
 	}
 
 	std::string filename = argv[1];
+
+	cv::VideoCapture cap(filename);
+	// if not success, exit program
+	if (cap.isOpened() == false)
+	{
+		std::cout << "Cannot open the video file" << std::endl;
+		std::cin.get(); //wait for any key press
+		return -1;
+	}
+
 	int dim = atoi(argv[2]);
 
-	if (dim <= 0)
+	//get frame resolution
+	int frame_width = cap.get(CAP_PROP_FRAME_WIDTH);
+	int frame_height = cap.get(CAP_PROP_FRAME_HEIGHT);
+	std::cout << "Video Resolution: " << frame_width << " x " << frame_height << std::endl;
+
+	if ((dim <= 0) || (dim > frame_width) || (dim > frame_height) 
+		|| (frame_width % dim != 0) || (frame_height % dim != 0))
 	{
-		std::cout << "Dim must be greater than 0" << std::endl;
+		std::cout << "Dim must be greater than 0, less than video resolution, and ";
+		std::cout << "evenly divisible by resolution" << std::endl;
 		return -1;
 	}
 
@@ -71,16 +88,7 @@ int main(int argc, char **argv)
 
 	std::cout << "Found " << keyframes.size() << " keyframes." << std::endl;
 
-	cv::VideoCapture cap(filename);
-	// if not success, exit program
-	if (cap.isOpened() == false)
-	{
-		std::cout << "Cannot open the video file" << std::endl;
-		std::cin.get(); //wait for any key press
-		return -1;
-	}
-
-	//get the frames rate of the video
+	//get the frame rate of the video
 	double fps = cap.get(CAP_PROP_FPS);
 
 	std::shared_ptr<message_queue<process_frame_event>> _eventQueue = std::make_shared<message_queue<process_frame_event>>();
